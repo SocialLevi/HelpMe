@@ -68,7 +68,7 @@ const {  state, saveCreds } =await useMultiFileAuthState(`./session`)
    
    store.bind(XeonBotInc.ev)
 
-    // Login using pairing code
+// Login using pairing code
 // Source code: https://github.com/WhiskeySockets/Baileys/blob/master/Example/example.ts#L61
 if (pairingCode && !XeonBotInc.authState.creds.registered) {
    if (useMobile) throw new Error('Cannot use pairing code with mobile API');
@@ -88,7 +88,6 @@ if (pairingCode && !XeonBotInc.authState.creds.registered) {
    }
 
    // Additional logic for pairing or handling the number can be added here
-
    rl.close(); // Close the readline interface after input is complete
 }
 
