@@ -1,12 +1,3 @@
-//base by Tech-God
-//re-upload? recode? copy code? give credit ya :)
-//YouTube: @techgod143
-//Instagram: techgod143
-//Telegram: t.me/techgod143
-//GitHub: @techgod143
-//WhatsApp: +917466008456
-//want more free bot scripts? subscribe to my youtube channel: https://youtube.com/@techgod143
-
 require("./settings");
 const pino = require("pino");
 const { Boom } = require("@hapi/boom");
@@ -36,9 +27,7 @@ const {
   proto,
 } = require("@whiskeysockets/baileys");
 const NodeCache = require("node-cache");
-const Pino = require("pino");
 const readline = require("readline");
-const makeWASocket = require("@whiskeysockets/baileys").default;
 
 // Initialize in-memory store
 const store = makeInMemoryStore({
@@ -48,11 +37,7 @@ const store = makeInMemoryStore({
   }),
 });
 
-// Define constants
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const question = (text) => new Promise((resolve) => rl.question(text, resolve));
-
-// Use an existing PHONENUMBER_MCC or define it only if not already declared
+// Prevent duplicate declaration of PHONENUMBER_MCC
 const PHONENUMBER_MCC =
   typeof PHONENUMBER_MCC !== "undefined"
     ? PHONENUMBER_MCC
@@ -63,14 +48,18 @@ const PHONENUMBER_MCC =
         // Add other country codes as needed
       };
 
-// Function to validate phone number
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const question = (text) => new Promise((resolve) => rl.question(text, resolve));
+const pairingCode = process.argv.includes("--pairing-code");
+const useMobile = process.argv.includes("--mobile");
+
 async function validatePhoneNumber() {
   let phoneNumber = await question(
     chalk.bgBlack(chalk.greenBright(`Please type your WhatsApp number 😍\nFor example: +916909137213 : `))
   );
   phoneNumber = phoneNumber.replace(/[^0-9]/g, "");
 
-  // Validate phone number against PHONENUMBER_MCC
+  // Validate phone number
   while (!Object.keys(PHONENUMBER_MCC).some((v) => phoneNumber.startsWith(v))) {
     console.log(
       chalk.bgBlack(
@@ -86,28 +75,50 @@ async function validatePhoneNumber() {
   return phoneNumber;
 }
 
-// Replace the pairing code logic with the updated validation
-if (pairingCode && !XeonBotInc.authState.creds.registered) {
-  if (useMobile) throw new Error("Cannot use pairing code with mobile API");
+async function startXeonBotInc() {
+  const { version, isLatest } = await fetchLatestBaileysVersion();
+  const { state, saveCreds } = await useMultiFileAuthState(`./session`);
+  const msgRetryCounterCache = new NodeCache();
 
-  // Validate phone number
-  const phoneNumber = await validatePhoneNumber();
+  const XeonBotInc = makeWASocket({
+    logger: pino({ level: "silent" }),
+    printQRInTerminal: !pairingCode,
+    browser: ["Ubuntu", "Chrome", "20.0.04"],
+    auth: {
+      creds: state.creds,
+      keys: makeCacheableSignalKeyStore(
+        state.keys,
+        pino({ level: "fatal" }).child({ level: "fatal" })
+      ),
+    },
+    markOnlineOnConnect: true,
+    generateHighQualityLinkPreview: true,
+    msgRetryCounterCache,
+    defaultQueryTimeoutMs: undefined,
+  });
 
-  // Generate the pairing code
-  setTimeout(async () => {
-    const code = await XeonBotInc.requestPairingCode(phoneNumber);
-    const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
-    console.log(
-      chalk.black(chalk.bgGreen(`Your Pairing Code: `)),
-      chalk.black(chalk.white(formattedCode))
-    );
-  }, 3000);
+  store.bind(XeonBotInc.ev);
 
-  rl.close(); // Close readline interface
-}
+  // Login using pairing code
+  if (pairingCode && !state.creds.registered) {
+    if (useMobile) throw new Error("Cannot use pairing code with mobile API");
 
+    // Validate and get phone number
+    const phoneNumber = await validatePhoneNumber();
 
-  // Handle connection updates
+    // Generate pairing code
+    setTimeout(async () => {
+      const code = await XeonBotInc.requestPairingCode(phoneNumber);
+      const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
+      console.log(
+        chalk.black(chalk.bgGreen(`Your Pairing Code: `)),
+        chalk.black(chalk.white(formattedCode))
+      );
+    }, 3000);
+
+    rl.close(); // Close readline interface
+  }
+
   XeonBotInc.ev.on("connection.update", async (update) => {
     const { connection, lastDisconnect } = update;
     if (connection === "open") {
@@ -125,7 +136,6 @@ if (pairingCode && !XeonBotInc.authState.creds.registered) {
 
   XeonBotInc.ev.on("creds.update", saveCreds);
 
-  // Handle incoming messages
   XeonBotInc.ev.on("messages.upsert", async (chatUpdate) => {
     try {
       const mek = chatUpdate.messages[0];
