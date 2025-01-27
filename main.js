@@ -1,3 +1,12 @@
+//base by Tech-God
+//re-upload? recode? copy code? give credit ya :)
+//YouTube: @techgod143
+//Instagram: techgod143
+//Telegram: t.me/techgod143
+//GitHub: @techgod143
+//WhatsApp: +917466008456
+//want more free bot scripts? subscribe to my youtube channel: https://youtube.com/@techgod143
+
 require("./settings");
 const pino = require("pino");
 const { Boom } = require("@hapi/boom");
@@ -12,7 +21,6 @@ const { smsg, isUrl, generateMessageTag, getBuffer, getSizeMedia, fetch, await, 
 const {
   default: XeonBotIncConnect,
   delay,
-  PHONENUMBER_MCC,
   makeCacheableSignalKeyStore,
   useMultiFileAuthState,
   DisconnectReason,
@@ -29,6 +37,21 @@ const {
 const NodeCache = require("node-cache");
 const readline = require("readline");
 
+// Ensure PHONENUMBER_MCC is defined only if not already declared
+if (typeof PHONENUMBER_MCC === "undefined") {
+  global.PHONENUMBER_MCC = {
+    "254": "Kenya",
+    "91": "India",
+    "1": "USA",
+    // Add other country codes as needed
+  };
+}
+
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+const question = (text) => new Promise((resolve) => rl.question(text, resolve));
+const pairingCode = process.argv.includes("--pairing-code");
+const useMobile = process.argv.includes("--mobile");
+
 // Initialize in-memory store
 const store = makeInMemoryStore({
   logger: pino().child({
@@ -37,22 +60,6 @@ const store = makeInMemoryStore({
   }),
 });
 
-// Prevent duplicate declaration of PHONENUMBER_MCC
-const PHONENUMBER_MCC =
-  typeof PHONENUMBER_MCC !== "undefined"
-    ? PHONENUMBER_MCC
-    : {
-        "254": "Kenya",
-        "91": "India",
-        "1": "USA",
-        // Add other country codes as needed
-      };
-
-const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-const question = (text) => new Promise((resolve) => rl.question(text, resolve));
-const pairingCode = process.argv.includes("--pairing-code");
-const useMobile = process.argv.includes("--mobile");
-
 async function validatePhoneNumber() {
   let phoneNumber = await question(
     chalk.bgBlack(chalk.greenBright(`Please type your WhatsApp number 😍\nFor example: +916909137213 : `))
@@ -60,7 +67,7 @@ async function validatePhoneNumber() {
   phoneNumber = phoneNumber.replace(/[^0-9]/g, "");
 
   // Validate phone number
-  while (!Object.keys(PHONENUMBER_MCC).some((v) => phoneNumber.startsWith(v))) {
+  while (!Object.keys(global.PHONENUMBER_MCC).some((v) => phoneNumber.startsWith(v))) {
     console.log(
       chalk.bgBlack(
         chalk.redBright("Invalid input. Start with the country code of your WhatsApp Number, Example: +916909137213")
