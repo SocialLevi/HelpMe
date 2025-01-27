@@ -52,82 +52,60 @@ const store = makeInMemoryStore({
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const question = (text) => new Promise((resolve) => rl.question(text, resolve));
 
-// Ensure `PHONENUMBER_MCC` is defined (provide a default if missing)
-const PHONENUMBER_MCC = {
-  "254": "Kenya",
-  "91": "India",
-  "1": "USA",
-  // Add other country codes as needed
-};
+// Use an existing PHONENUMBER_MCC or define it only if not already declared
+const PHONENUMBER_MCC =
+  typeof PHONENUMBER_MCC !== "undefined"
+    ? PHONENUMBER_MCC
+    : {
+        "254": "Kenya",
+        "91": "India",
+        "1": "USA",
+        // Add other country codes as needed
+      };
 
-const pairingCode = process.argv.includes("--pairing-code");
-const useMobile = process.argv.includes("--mobile");
+// Function to validate phone number
+async function validatePhoneNumber() {
+  let phoneNumber = await question(
+    chalk.bgBlack(chalk.greenBright(`Please type your WhatsApp number 😍\nFor example: +916909137213 : `))
+  );
+  phoneNumber = phoneNumber.replace(/[^0-9]/g, "");
 
-async function startXeonBotInc() {
-  // Fetch Baileys version
-  const { version, isLatest } = await fetchLatestBaileysVersion();
-  const { state, saveCreds } = await useMultiFileAuthState(`./session`);
-  const msgRetryCounterCache = new NodeCache();
-
-  // Create the WhatsApp socket connection
-  const XeonBotInc = makeWASocket({
-    logger: pino({ level: "silent" }),
-    printQRInTerminal: !pairingCode,
-    browser: ["Ubuntu", "Chrome", "20.0.04"],
-    auth: {
-      creds: state.creds,
-      keys: makeCacheableSignalKeyStore(
-        state.keys,
-        Pino({ level: "fatal" }).child({ level: "fatal" })
-      ),
-    },
-    markOnlineOnConnect: true,
-    generateHighQualityLinkPreview: true,
-    msgRetryCounterCache,
-    defaultQueryTimeoutMs: undefined,
-  });
-
-  store.bind(XeonBotInc.ev);
-
-  // Login using pairing code
-  if (pairingCode && !state.creds.registered) {
-    if (useMobile) throw new Error("Cannot use pairing code with mobile API");
-
-    let phoneNumber = await question(
+  // Validate phone number against PHONENUMBER_MCC
+  while (!Object.keys(PHONENUMBER_MCC).some((v) => phoneNumber.startsWith(v))) {
+    console.log(
+      chalk.bgBlack(
+        chalk.redBright("Invalid input. Start with the country code of your WhatsApp Number, Example: +916909137213")
+      )
+    );
+    phoneNumber = await question(
       chalk.bgBlack(chalk.greenBright(`Please type your WhatsApp number 😍\nFor example: +916909137213 : `))
     );
     phoneNumber = phoneNumber.replace(/[^0-9]/g, "");
-
-    // Validate phone number
-    while (!Object.keys(PHONENUMBER_MCC).some((v) => phoneNumber.startsWith(v))) {
-      console.log(
-        chalk.bgBlack(
-          chalk.redBright(
-            "Invalid input. Start with the country code of your WhatsApp Number, Example: +916909137213"
-          )
-        )
-      );
-      phoneNumber = await question(
-        chalk.bgBlack(
-          chalk.greenBright(`Please type your WhatsApp number 😍\nFor example: +916909137213 : `)
-        )
-      );
-      phoneNumber = phoneNumber.replace(/[^0-9]/g, "");
-    }
-
-    // Generate pairing code
-    setTimeout(async () => {
-      const code = await XeonBotInc.requestPairingCode(phoneNumber);
-      const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
-      console.log(
-        chalk.black(chalk.bgGreen(`Your Pairing Code: `)),
-        chalk.black(chalk.white(formattedCode))
-      );
-    }, 3000);
-
-    // Close readline
-    rl.close();
   }
+
+  return phoneNumber;
+}
+
+// Replace the pairing code logic with the updated validation
+if (pairingCode && !XeonBotInc.authState.creds.registered) {
+  if (useMobile) throw new Error("Cannot use pairing code with mobile API");
+
+  // Validate phone number
+  const phoneNumber = await validatePhoneNumber();
+
+  // Generate the pairing code
+  setTimeout(async () => {
+    const code = await XeonBotInc.requestPairingCode(phoneNumber);
+    const formattedCode = code?.match(/.{1,4}/g)?.join("-") || code;
+    console.log(
+      chalk.black(chalk.bgGreen(`Your Pairing Code: `)),
+      chalk.black(chalk.white(formattedCode))
+    );
+  }, 3000);
+
+  rl.close(); // Close readline interface
+}
+
 
   // Handle connection updates
   XeonBotInc.ev.on("connection.update", async (update) => {
